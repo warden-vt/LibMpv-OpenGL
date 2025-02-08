@@ -1,4 +1,6 @@
-﻿namespace HanumanInstitute.LibMpv.Core;
+﻿using System.Reflection;
+
+namespace HanumanInstitute.LibMpv.Core;
 
 public abstract class FunctionResolverBase : IFunctionResolver
 {
@@ -14,7 +16,7 @@ public abstract class FunctionResolverBase : IFunctionResolver
 
     public T? GetFunctionDelegate<T>(string libraryName, string functionName, bool throwOnError = true)
     {
-        var nativeLibraryHandle = GetOrLoadLibrary(libraryName, throwOnError);
+        var nativeLibraryHandle = NativeLibrary.Load(GetNativeLibraryName(MpvApi.DllName, MpvApi.LibraryVersionMap.First().Value), Assembly.GetExecutingAssembly(), DllImportSearchPath.AssemblyDirectory);
         return GetFunctionDelegate<T>(nativeLibraryHandle, functionName, throwOnError);
     }
 
@@ -31,7 +33,7 @@ public abstract class FunctionResolverBase : IFunctionResolver
             return default;
         }
 
-#if NETSTANDARD2_0_OR_GREATER
+#if NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
         try
         {
             return Marshal.GetDelegateForFunctionPointer<T>(functionPointer);
@@ -49,46 +51,46 @@ public abstract class FunctionResolverBase : IFunctionResolver
 #endif
     }
 
-    public IntPtr GetOrLoadLibrary(string libraryName, bool throwOnError)
-    {
-        if (_loadedLibraries.TryGetValue(libraryName, out var ptr)) return ptr;
+    //public IntPtr GetOrLoadLibrary(string libraryName, bool throwOnError)
+    //{
+    //    if (_loadedLibraries.TryGetValue(libraryName, out var ptr)) return ptr;
 
-        lock (_syncRoot)
-        {
-            if (_loadedLibraries.TryGetValue(libraryName, out ptr)) return ptr;
+    //    lock (_syncRoot)
+    //    {
+    //        if (_loadedLibraries.TryGetValue(libraryName, out ptr)) return ptr;
 
-            if (LibraryDependenciesMap.TryGetValue(libraryName, out var dependencies))
-            {
-                dependencies.Where(n => !_loadedLibraries.ContainsKey(n) && !n.Equals(libraryName))
-                    .ToList()
-                    .ForEach(n => GetOrLoadLibrary(n, false));
-            }
+    //        if (LibraryDependenciesMap.TryGetValue(libraryName, out var dependencies))
+    //        {
+    //            dependencies.Where(n => !_loadedLibraries.ContainsKey(n) && !n.Equals(libraryName))
+    //                .ToList()
+    //                .ForEach(n => GetOrLoadLibrary(n, false));
+    //        }
 
-            var version = MpvApi.LibraryVersionMap[libraryName];
-            var nativeLibraryName = GetNativeLibraryName(libraryName, version);
-            foreach (var path in GetSearchPaths())
-            {
-                var libraryPath = Path.Combine(path, nativeLibraryName);
-                ptr = LoadNativeLibrary(libraryPath);
-                if (ptr != IntPtr.Zero)
-                {
-                    break;
-                }
-            }
+    //        var version = MpvApi.LibraryVersionMap[libraryName];
+    //        var nativeLibraryName = GetNativeLibraryName(libraryName, version);
+    //        foreach (var path in GetSearchPaths())
+    //        {
+    //            var libraryPath = Path.Combine(path, nativeLibraryName);
+    //            ptr = LoadNativeLibrary(libraryPath);
+    //            if (ptr != IntPtr.Zero)
+    //            {
+    //                break;
+    //            }
+    //        }
 
-            if (ptr != IntPtr.Zero)
-            {
-                _loadedLibraries.Add(libraryName, ptr);
-            }
-            else if (throwOnError)
-            {
-                throw new DllNotFoundException(
-                    $"Unable to load DLL '{libraryName}.{version} under {MpvApi.RootPath}': The specified module could not be found.");
-            }
+    //        if (ptr != IntPtr.Zero)
+    //        {
+    //            _loadedLibraries.Add(libraryName, ptr);
+    //        }
+    //        else if (throwOnError)
+    //        {
+    //            throw new DllNotFoundException(
+    //                $"Unable to load DLL '{libraryName}.{version} under {MpvApi.RootPath}': The specified module could not be found.");
+    //        }
 
-            return ptr;
-        }
-    }
+    //        return ptr;
+    //    }
+    //}
 
     protected abstract string GetNativeLibraryName(string libraryName, int version);
     protected abstract string[] GetSearchPaths();

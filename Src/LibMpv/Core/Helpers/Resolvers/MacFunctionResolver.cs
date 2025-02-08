@@ -4,7 +4,8 @@ namespace HanumanInstitute.LibMpv.Core;
 
 public class MacFunctionResolver : FunctionResolverBase
 {
-    private const string Libdl = "libdl";
+    //libSystem has dlsym and dlopen in newer osx
+    private const string Libdl = "libSystem";
     private const int RTLD_NOW = 0x002;
 
     protected override string GetNativeLibraryName(string libraryName, int version) => $"{libraryName}.{version}.dylib";
